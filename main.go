@@ -5,6 +5,8 @@ import (
 	"encoding/json"
 	"fmt"
 	"infrastructure/ipfetcher"
+	"infrastructure/proxmox"
+	"infrastructure/proxmox/authentication"
 	"io"
 	"net/http"
 	"sync"
@@ -129,4 +131,11 @@ func main() {
 
 	wg.Wait()
 	fmt.Println("Finished")
+
+	auth := authentication.InteractiveAuthentication{}
+
+	proxmoxClient := proxmox.NewClient(
+		"",
+		&auth,
+	)
 }
