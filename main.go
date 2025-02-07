@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"infrastructure/ipfetcher"
 	"infrastructure/proxmox"
-	"infrastructure/proxmox/authentication"
 	"io"
 	"net/http"
 	"sync"
@@ -123,19 +122,32 @@ func main() {
 		ipChan = make(chan struct{})
 	)
 
-	wg.Add(4)
+	wg.Add(1)
 	go fetchIP(1, fetcher, &ip, ipChan, &wg)
-	go useIP(2, &ip, ipChan, &wg)
-	go onlyIP(3, &ip, ipChan, &wg)
-	go testProxmoxConn(4, "http://pve1.s1.lan:8006/api2/json/nodes", &wg)
+	//go useIP(2, &ip, ipChan, &wg)
+	//go onlyIP(3, &ip, ipChan, &wg)
+	//go testProxmoxConn(4, "http://pve1.s1.lan:8006/api2/json/nodes", &wg)
 
 	wg.Wait()
 	fmt.Println("Finished")
 
-	auth := authentication.InteractiveAuthentication{}
+	auth := proxmox.InteractiveAuthentication{}
 
 	proxmoxClient := proxmox.NewClient(
-		"",
+		"http://pve1.s1.lan:8006",
 		&auth,
+		nil,
 	)
+	nodes, err := proxmoxClient.Nodes.GetNodes()
+	if err != nil {
+		fmt.Println(err)
+		return
+	}
+	for _, node := range nodes {
+		fmt.Printf("\nNode: %s\n", node.Node)
+		fmt.Printf("ID: %s\n", node.ID)
+		fmt.Printf("Cores: %d\n", node.CPUs)
+		fmt.Printf("Ram: %.2f\n", float64(node.Memory)/(1000*1000*1000))
+		fmt.Printf("Uptime: %d\n", node.Uptime)
+	}
 }
