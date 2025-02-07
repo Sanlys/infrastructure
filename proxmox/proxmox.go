@@ -5,6 +5,10 @@ import (
 	"net/http"
 )
 
+type ApiBase struct {
+	http *Http
+}
+
 type Client struct {
 	baseurl     string
 	auth        Authentication
@@ -24,16 +28,18 @@ func NewClient(baseurl string, auth Authentication, http_client *http.Client) *C
 				TLSClientConfig: &tls.Config{InsecureSkipVerify: true},
 			},
 		}
-
 	}
+
+	httpHandler := &Http{
+		baseurl:     baseurl,
+		auth:        auth,
+		http_client: *http_client,
+	}
+
 	return &Client{
 		baseurl:     baseurl,
 		auth:        auth,
 		http_client: *http_client,
-		Nodes: ApiNodes{
-			baseurl:     baseurl,
-			auth:        auth,
-			http_client: *http_client,
-		},
+		Nodes:       ApiNodes{http: httpHandler},
 	}
 }

@@ -1,53 +1,49 @@
 package proxmox
 
-import (
-	"encoding/json"
-	"net/http"
-)
+import "fmt"
+
+type ApiNodes ApiBase
 
 type Node struct {
-	Type   string `json:"type"`
-	Status string `json:"status"`
-	Disk   int    `json:"disk"`
-	Node   string `json:"node"`
-	//SSL_Fingerprint string `json:"ssl_fingerprint"`
-	Memory int    `json:"mem"`
-	CPUs   int    `json:"maxcpu"`
-	ID     string `json:"id"`
-	Uptime int    `json:"uptime"`
+	Type            string  `json:"type"`
+	Level           string  `json:"level"`
+	Status          string  `json:"status"`
+	Disk            int     `json:"disk"`
+	Node            string  `json:"node"`
+	SSL_Fingerprint string  `json:"ssl_fingerprint"`
+	MaxMemory       int     `json:"maxmem"`
+	Memory          int     `json:"mem"`
+	MaxCPUS         int     `json:"maxcpu"`
+	CPU             float64 `json:"cpu"`
+	ID              string  `json:"id"`
+	Uptime          int     `json:"uptime"`
 }
 
 type NodeResponse struct {
 	Data []Node `json:"data"`
 }
 
-type ApiNodes struct { // Refactor
-	http_client http.Client
-	baseurl     string
-	auth        Authentication
+func (n *ApiNodes) GetNodes() ([]Node, error) {
+	var response NodeResponse
+	err := n.http.GET("/api2/json/nodes/", &response)
+	return response.Data, err
 }
 
-func (n *ApiNodes) GetNodes() ([]Node, error) {
-	req, err := http.NewRequest("GET", n.baseurl+"/api2/json/nodes", nil)
-	if err != nil {
-		return nil, err
-	}
-	auth, err := n.auth.GetAuthHeader()
-	if err != nil {
-		return nil, err
-	}
-	req.Header.Set("Authorization", auth)
+type NodeDisk struct {
+	Devpath   string   `json:"devpath"`
+	GPT       int      `json:"gpt"`
+	Mounted   bool     `json:"mounted"`
+	OSDID     any      `json:"osdid"`
+	OSDIDList []string `json:"osdid-list"`
+	Size      int      `json:"size"`
+}
 
-	resp, err := n.http_client.Do(req)
-	if err != nil {
-		return nil, err
-	}
-	defer resp.Body.Close()
+type NodeDiskResponse struct {
+	Data []NodeDisk `json:"data"`
+}
 
-	var response NodeResponse
-	err = json.NewDecoder(resp.Body).Decode(&response)
-	if err != nil {
-		return nil, err
-	}
-	return response.Data, nil
+func (n *ApiNodes) GetNodeDisks(nodeid string) ([]NodeDisk, error) {
+	var response NodeDiskResponse
+	err := n.http.GET(fmt.Sprintf("/api2/json/nodes/%s/disks/list", nodeid), &response)
+	return response.Data, err
 }

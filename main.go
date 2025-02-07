@@ -138,7 +138,7 @@ func main() {
 		&auth,
 		nil,
 	)
-	nodes, err := proxmoxClient.Nodes.GetNodes()
+	/*nodes, err := proxmoxClient.Nodes.GetNodes()
 	if err != nil {
 		fmt.Println(err)
 		return
@@ -146,8 +146,22 @@ func main() {
 	for _, node := range nodes {
 		fmt.Printf("\nNode: %s\n", node.Node)
 		fmt.Printf("ID: %s\n", node.ID)
-		fmt.Printf("Cores: %d\n", node.CPUs)
-		fmt.Printf("Ram: %.2f\n", float64(node.Memory)/(1000*1000*1000))
-		fmt.Printf("Uptime: %d\n", node.Uptime)
+		fmt.Printf("Status: %s\n", node.Status)
+		fmt.Printf("CPU: %d cores\n", node.MaxCPUS)
+		fmt.Printf("Ram: %.2f GiB\n", float64(node.MaxMemory)/(1024*1024*1024))
+		fmt.Printf("Uptime: %d\n", node.Uptime/(60*60*24))
+	}*/
+	disks, err := proxmoxClient.Nodes.GetNodeDisks("pve4")
+	if err != nil {
+		fmt.Println(err)
+		return
+	}
+	for _, disk := range disks {
+		fmt.Printf("\nMountpath: %s\n", disk.Devpath)
+		fmt.Printf("Mounted: %t\n", disk.Mounted)
+		fmt.Printf("Size: %d\n", disk.Size)
+		fmt.Printf("GPT: %d\n", disk.GPT)
+		fmt.Printf("OSD ID: %s\n", disk.OSDID)
+		fmt.Printf("OSD ID List: %+v\n", disk.OSDIDList)
 	}
 }
