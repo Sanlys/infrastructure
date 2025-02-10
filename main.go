@@ -1,15 +1,8 @@
 package main
 
 import (
-	"crypto/tls"
-	"encoding/json"
 	"fmt"
-	"infrastructure/ipfetcher"
 	"infrastructure/proxmox"
-	"io"
-	"net/http"
-	"sync"
-	"time"
 )
 
 type ProxmoxNode struct {
@@ -19,117 +12,7 @@ type ProxmoxNode struct {
 	Node   string `json:"node"`
 }
 
-func fetchIP(index int, fetcher ipfetcher.IPFetcher, ip *string, ipChan chan struct{}, wg *sync.WaitGroup) {
-	defer wg.Done()
-
-	fmt.Printf("Worker %d: Starting\n", index)
-	fmt.Printf("Worker %d: Fetching IP address...\n", index)
-	IP, err := fetcher.GetIP()
-	if err != nil {
-		fmt.Println(err.Error())
-		close(ipChan)
-		return
-	}
-	*ip = IP
-	close(ipChan)
-	fmt.Printf("Worker %d: Read IP %s\n", index, IP)
-	fmt.Printf("Worker %d: Waiting...\n", index)
-	time.Sleep(3 * time.Second)
-	fmt.Printf("Worker %d: Finished waiting\n", index)
-	fmt.Printf("Worker %d: Finished\n", index)
-}
-
-func useIP(index int, ip *string, ipChan chan struct{}, wg *sync.WaitGroup) {
-	defer wg.Done()
-	fmt.Printf("Worker %d: Starting\n", index)
-
-	<-ipChan
-	output := *ip
-	fmt.Printf("Worker %d: Received IP %s\n", index, output)
-	fmt.Printf("Worker %d: Finished\n", index)
-}
-
-func onlyIP(index int, ip *string, ipChan chan struct{}, wg *sync.WaitGroup) {
-	defer wg.Done()
-	fmt.Printf("Worker %d: Starting\n", index)
-
-	<-ipChan
-	output := *ip
-	fmt.Printf("Worker %d: Received IP %s\n", index, output)
-	fmt.Printf("Worker %d: Finished\n", index)
-}
-
-func testProxmoxConn(index int, endpoint string, wg *sync.WaitGroup) {
-	defer wg.Done()
-
-	fmt.Printf("Worker %d: Starting\n", index)
-
-	client := &http.Client{
-		Transport: &http.Transport{
-			TLSClientConfig: &tls.Config{InsecureSkipVerify: true},
-		},
-	}
-
-	req, err := http.NewRequest("GET", endpoint, nil)
-	if err != nil {
-		fmt.Printf("Worker %d: Failed to create request: %s\n", index, err)
-		return
-	}
-
-	req.Header.Set("Authorization", "")
-
-	res, err := client.Do(req)
-	if err != nil {
-		fmt.Printf("Worker %d: died %s\n", index, err)
-		return
-	}
-	defer res.Body.Close()
-
-	if res.StatusCode != http.StatusOK {
-		fmt.Printf("Worker %d: Status code: %d\n", index, res.StatusCode)
-		return
-	}
-
-	body, err := io.ReadAll(res.Body)
-	if err != nil {
-		fmt.Printf("Worker %d: Error reading response: %s\n", index, err)
-		return
-	}
-
-	type ProxmoxResponse struct {
-		Data []ProxmoxNode `json:"data"`
-	}
-	var response ProxmoxResponse
-
-	jsonerr := json.Unmarshal(body, &response)
-	if jsonerr != nil {
-		fmt.Printf("Worker %d: Error unpacking json: %s\n", index, jsonerr)
-	}
-
-	nodes := response.Data
-
-	formatted, _ := json.MarshalIndent(nodes, "", " ")
-	fmt.Printf("Worker %d: Response: %s\n", index, string(formatted))
-}
-
 func main() {
-	var wg sync.WaitGroup
-
-	fetcher := ipfetcher.APIIPFetcher{}
-
-	var (
-		ip     string
-		ipChan = make(chan struct{})
-	)
-
-	wg.Add(1)
-	go fetchIP(1, fetcher, &ip, ipChan, &wg)
-	//go useIP(2, &ip, ipChan, &wg)
-	//go onlyIP(3, &ip, ipChan, &wg)
-	//go testProxmoxConn(4, "http://pve1.s1.lan:8006/api2/json/nodes", &wg)
-
-	wg.Wait()
-	fmt.Println("Finished")
 
 	auth := proxmox.InteractiveAuthentication{}
 
@@ -150,8 +33,8 @@ func main() {
 		fmt.Printf("CPU: %d cores\n", node.MaxCPUS)
 		fmt.Printf("Ram: %.2f GiB\n", float64(node.MaxMemory)/(1024*1024*1024))
 		fmt.Printf("Uptime: %d\n", node.Uptime/(60*60*24))
-	}*/
-	disks, err := proxmoxClient.Nodes.GetNodeDisks("pve4")
+	}
+	disks, err := proxmoxClient.Nodes.GetNodeDisks("pve1")
 	if err != nil {
 		fmt.Println(err)
 		return
@@ -159,9 +42,41 @@ func main() {
 	for _, disk := range disks {
 		fmt.Printf("\nMountpath: %s\n", disk.Devpath)
 		fmt.Printf("Mounted: %t\n", disk.Mounted)
-		fmt.Printf("Size: %d\n", disk.Size)
-		fmt.Printf("GPT: %d\n", disk.GPT)
-		fmt.Printf("OSD ID: %s\n", disk.OSDID)
+		fmt.Printf("Size: %.2f\n", float64(disk.Size)/(1000*1000*1000))
+		fmt.Printf("GPT: %t\n", disk.GPT)
+		fmt.Printf("OSD ID: %d\n", disk.OSDID)
 		fmt.Printf("OSD ID List: %+v\n", disk.OSDIDList)
+		fmt.Printf("Healht: %s\n", disk.Health)
+		fmt.Printf("Model: %s\n", disk.Model)
+		fmt.Printf("Parent: %s\n", disk.Parent)
+		fmt.Printf("Serial: %s\n", disk.Serial)
+		fmt.Printf("Used: %s\n", disk.Used)
+		fmt.Printf("Vendor: %s\n", disk.Vendor)
+		fmt.Printf("WWN: %s\n", disk.WWN)
+	}*/
+
+	vms, err := proxmoxClient.Nodes.GetQemuList("pve1")
+	if err != nil {
+		fmt.Println(err)
+		return
+	}
+	for _, vm := range vms {
+		fmt.Printf("\nVM ID: %d\n", vm.VMID)
+		fmt.Printf("Status: %s\n", vm.Status)
+		fmt.Printf("Template: %t\n", vm.Template)
+		fmt.Printf("Name: %s\n", vm.Name)
+		fmt.Printf("Tags: %s\n", vm.Tags)
+		fmt.Printf("Uptime: %d\n", vm.Uptime)
+		fmt.Printf("Lock: %s\n", vm.Lock)
+		fmt.Printf("CPUs: %d\n", vm.CPUs)
+		fmt.Printf("Max memory: %d\n", vm.MaxMem)
+		fmt.Printf("Max disk: %d\n", vm.MaxDisk)
+		fmt.Printf("Disk read: %d\n", vm.DiskRead)
+		fmt.Printf("Disk write: %d\n", vm.DiskWrite)
+		fmt.Printf("Net in: %d\n", vm.NetIn)
+		fmt.Printf("Net out: %d\n", vm.NetOut)
+		fmt.Printf("Qemu pid: %d\n", vm.Pid)
+		fmt.Printf("QMP Status: %s\n", vm.QmpStatus)
+		fmt.Printf("Qemu version: %s\n", vm.RunningQemu)
 	}
 }
