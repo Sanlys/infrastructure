@@ -2,6 +2,7 @@ package proxmox
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"strconv"
 )
@@ -29,7 +30,7 @@ type NodeResponse struct {
 
 func (n *ApiNodes) GetNodes() ([]Node, error) {
 	var response NodeResponse
-	err := n.http.GET("/api2/json/nodes/", &response)
+	_, err := n.http.GET("/api2/json/nodes/", &response)
 	return response.Data, err
 }
 
@@ -104,7 +105,7 @@ type NodeDiskResponse struct {
 
 func (n *ApiNodes) GetNodeDisks(nodeid string) ([]NodeDisk, error) {
 	var response NodeDiskResponse
-	err := n.http.GET(fmt.Sprintf("/api2/json/nodes/%s/disks/list", nodeid), &response)
+	_, err := n.http.GET(fmt.Sprintf("/api2/json/nodes/%s/disks/list", nodeid), &response)
 	return response.Data, err
 }
 
@@ -169,6 +170,18 @@ type QemuResponse struct {
 
 func (n *ApiNodes) GetQemuList(nodeid string) ([]Qemu, error) {
 	var response QemuResponse
-	err := n.http.GET(fmt.Sprintf("/api2/json/nodes/%s/qemu", nodeid), &response)
+	_, err := n.http.GET(fmt.Sprintf("/api2/json/nodes/%s/qemu", nodeid), &response)
 	return response.Data, err
+}
+
+type QemuInput struct {
+	VMID int `json:"vmid"`
+}
+
+func (n *ApiNodes) CreateQemuVM(nodeid string, input QemuInput) (Metadata, error) {
+	meta, err := n.http.POST(fmt.Sprintf("/api2/json/nodes/%s/qemu", nodeid), nil, &input)
+	if meta.StatusCode != 200 {
+		return meta, errors.New(meta.Status)
+	}
+	return meta, err
 }
