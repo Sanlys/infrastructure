@@ -84,8 +84,14 @@ func main() {
 		AddItem(infoBox, 0, 3, false)
 
 	for _, node := range nodes {
-		list.AddItem(node.Node, fmt.Sprintf("ID: %s", node.ID), ' ', func() {
-			infoBox.SetText(fmt.Sprintf("Node: %s\nID: %s\nUptime: %s", node.Node, node.ID, HumanReadableDuration(int64(node.Uptime))))
+		var statusLight string
+		if node.Status == "online" {
+			statusLight = "🟢"
+		} else {
+			statusLight = "🔴"
+		}
+		list.AddItem(fmt.Sprintf("%s %s", node.Node, statusLight), fmt.Sprintf("ID: %s", node.ID), ' ', func() {
+			infoBox.SetText(fmt.Sprintf("Node: %s\nID: %s\nStatus: %s\nUptime: %s", node.Node, node.ID, node.Status, HumanReadableDuration(int64(node.Uptime))))
 
 			vms, err := proxmoxClient.Nodes.GetQemuList(node.Node)
 			if err != nil {
@@ -93,7 +99,13 @@ func main() {
 			}
 			vmList.Clear()
 			for _, vm := range vms {
-				vmList.AddItem(vm.Name, fmt.Sprintf("ID: %d", vm.VMID), ' ', func() {
+				var statusLight string
+				if vm.Status == "running" {
+					statusLight = "🟢"
+				} else {
+					statusLight = "🔴"
+				}
+				vmList.AddItem(fmt.Sprintf("%s %s", vm.Name, statusLight), fmt.Sprintf("ID: %d", vm.VMID), ' ', func() {
 					infoBox.SetText(fmt.Sprintf("VM: %s\nID: %d\nStatus: %s\nUptime: %s", vm.Name, vm.VMID, vm.Status, HumanReadableDuration(int64(node.Uptime))))
 				})
 			}
